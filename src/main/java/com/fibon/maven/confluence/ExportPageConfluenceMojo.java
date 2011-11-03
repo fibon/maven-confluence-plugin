@@ -18,9 +18,9 @@ package com.fibon.maven.confluence;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.InputStream;
 
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpResponse;
@@ -39,8 +39,6 @@ import com.fibon.maven.confluence.model.PageDescriptor;
  * @requiresProject false
  */
 public class ExportPageConfluenceMojo extends AbstractConfluenceMojo {
-
-	private final static String PDF = "/spaces/flyingpdf/pdfpageexport.action";
 
 	/**
 	 * Page description.
@@ -68,19 +66,29 @@ public class ExportPageConfluenceMojo extends AbstractConfluenceMojo {
 	}
 
 	public void execute() throws MojoFailureException {
-		DefaultHttpClient httpClient = new DefaultHttpClient();
-		Long pageId = getClient().getPageId(page);
-		HttpGet request = prepareExportPageRequest(pageId);
-		try {
-			HttpResponse response = httpClient.execute(request);
-			saveResponse(response);
-		} catch (IOException e) {
-			throw fail("Unable to retrieve PDF", e);
+		String extension = FilenameUtils.getExtension(outputFile.getPath());
+		Format format = selectFormat(extension);
+		if (format == null) {
+			throw new MojoFailureException("Format " + format + " is not suported");
+		} else {
+			Long pageId = getClient().getPageId(page);
+			HttpGet request = prepareExportPageRequest(format, pageId);
+			downloadFile(request);
 		}
 	}
 
-	private HttpGet prepareExportPageRequest(Long pageId) throws MojoFailureException {
-		HttpGet get = new HttpGet(url + PDF + "?pageId=" + pageId);
+	private Format selectFormat(String extension) {
+		for (Format format : Format.values()) {
+			if (format.name().equalsIgnoreCase(extension)) {
+				return format;
+			}
+		}
+		return null;
+
+	}
+
+	private HttpGet prepareExportPageRequest(Format format, Long pageId) throws MojoFailureException {
+		HttpGet get = new HttpGet(url + format.url + "?pageId=" + pageId);
 		AuthenticationInfo info = wagonManager.getAuthenticationInfo(serverId);
 		UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(info.getUserName(), info.getPassword());
 		BasicScheme scheme = new BasicScheme();
@@ -93,23 +101,36 @@ public class ExportPageConfluenceMojo extends AbstractConfluenceMojo {
 		}
 	}
 
-	private void saveResponse(HttpResponse response) throws MojoFailureException {
-		if (response == null || response.getEntity() == null) {
-			getLog().warn("Nothing to save - empty response");
-		} else {
-			InputStream in = null;
-			FileOutputStream out = null;
-			try {
+	private void downloadFile(HttpGet request) throws MojoFailureException {
+		InputStream in = null;
+		FileOutputStream out = null;
+		DefaultHttpClient httpClient = new DefaultHttpClient();
+		try {
+			HttpResponse response = httpClient.execute(request);
+			if (response == null || response.getEntity() == null) {
+				getLog().warn("Nothing to save - empty response");
+			} else {
 				in = response.getEntity().getContent();
 				out = new FileOutputStream(outputFile);
 				IOUtils.copy(in, out);
-			} catch (Exception e) {
-				throw fail("Unable to save file", e);
-			} finally {
-				IOUtils.closeQuietly(in);
-				IOUtils.closeQuietly(out);
 			}
+		} catch (Exception e) {
+			throw fail("Unable to download page", e);
+		} finally {
+			IOUtils.closeQuietly(in);
+			IOUtils.closeQuietly(out);
 		}
+	}
+
+	static enum Format {
+		PDF("/spaces/flyingpdf/pdfpageexport.action"), DOC("/exportword");
+
+		private String url;
+
+		private Format(String url) {
+			this.url = url;
+		}
+
 	}
 
 }

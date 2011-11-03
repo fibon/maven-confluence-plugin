@@ -4,7 +4,7 @@ Available goals:
 * **addblogentry** - adds new blog entry
 * **addcomment** - adds comment to existing page
 * **addattachment** - adds attachment to existing page
-* **exportpage** - exports existing page to several supported formats
+* **exportpage** - exports existing page to several supported formats (pdf, doc)
 
 Example plugin definition:
 ==========================
