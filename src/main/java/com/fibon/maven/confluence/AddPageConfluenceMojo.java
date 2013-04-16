@@ -86,8 +86,10 @@ public class AddPageConfluenceMojo extends AbstractConfluenceMojo {
 		}
 	}
 
-	private RemotePage createPageObject(Long parentId, String content) {
-		RemotePage page = new RemotePage();
+	private RemotePage createPageObject(Long parentId, String content) throws MojoFailureException {
+		RemotePage page = getClient().getPage(parent.getSpace(), pageTitle);
+		if( page == null )
+			page = new RemotePage();
 		page.setTitle(pageTitle);
 		if (parentId != null) {
 			page.setParentId(parentId);

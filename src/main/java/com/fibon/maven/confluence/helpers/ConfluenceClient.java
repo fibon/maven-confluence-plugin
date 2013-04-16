@@ -41,6 +41,14 @@ public class ConfluenceClient {
 		token = service.login(username, password);
 	}
 
+	public RemotePage getPage(String space, String title) {
+		try {
+			return service.getPage(token, space, title);
+		} catch(RemoteException ex) {
+			return null;
+		}
+	}
+
 	public Long getPageId(PageDescriptor descriptor) {
 		if (descriptor.isAbsolute()) {
 			return descriptor.getId();
